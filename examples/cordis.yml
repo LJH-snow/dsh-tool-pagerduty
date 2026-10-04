@@ -1,0 +1,9 @@
+# Example dsh composition config for dsh-tool-pagerduty.
+# Create a PagerDuty REST API user token with the minimum required scopes.
+
+- name: 'github:LJH-snow/dsh-tool-pagerduty'
+  config:
+    token: 'u+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+    # baseUrl: 'https://api.pagerduty.com'
+    # fromEmail: 'oncall-bot@example.com'  # required for some write APIs
+    # timeoutMs: 15000
