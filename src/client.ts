@@ -89,6 +89,14 @@ export interface PagerDutyEscalationPolicyInfo {
   ruleSummary: string
 }
 
+export interface PagerDutyNoteInfo {
+  id: string
+  content: string
+  createdAt: string
+  userId: string
+  userName: string
+}
+
 export interface PagerDutyPage<T> {
   items: T[]
   limit: number
@@ -213,6 +221,18 @@ function mapEscalationPolicy(value: unknown): PagerDutyEscalationPolicyInfo {
     description: asString(r, 'description'),
     numLoops: asNumber(r, 'num_loops'),
     ruleSummary: rules.join(' | '),
+  }
+}
+
+function mapNote(value: unknown): PagerDutyNoteInfo {
+  const r = asRecord(value)
+  const user = asRecord(r.user)
+  return {
+    id: asString(r, 'id'),
+    content: asString(r, 'content'),
+    createdAt: asString(r, 'created_at'),
+    userId: asString(user, 'id'),
+    userName: asString(user, 'summary') || asString(user, 'name'),
   }
 }
 
@@ -427,5 +447,22 @@ export class PagerDutyClient {
       status: asString(result, 'status') || options.status,
       resolution: asString(result, 'resolution') || options.resolution || '',
     }
+  }
+
+  async listIncidentNotes(incidentId: string, signal?: AbortSignal): Promise<{ items: PagerDutyNoteInfo[] }> {
+    const raw = await this.request<Record<string, unknown>>('GET', `/incidents/${encodeURIComponent(incidentId)}/notes`, { signal })
+    return { items: asArray(asRecord(raw).notes).map(mapNote) }
+  }
+
+  async createIncidentNote(options: {
+    incidentId: string
+    content: string
+    signal?: AbortSignal
+  }): Promise<PagerDutyNoteInfo> {
+    const raw = await this.request<{ note?: unknown }>('POST', `/incidents/${encodeURIComponent(options.incidentId)}/notes`, {
+      body: { note: { content: options.content } },
+      signal: options.signal,
+    })
+    return mapNote(asRecord(raw).note)
   }
 }

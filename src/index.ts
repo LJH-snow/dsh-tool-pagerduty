@@ -53,6 +53,15 @@ function renderPolicies(items: Array<{ id?: string; name?: string; numLoops?: nu
   return text(items.map(policy => `${policy.name ?? ''} (${policy.id ?? ''}) loops=${policy.numLoops ?? 0} rules=${policy.ruleSummary ?? ''}`).join('\n'))
 }
 
+function clip(value: string | undefined, limit: number): string {
+  return (value ?? '').slice(0, limit)
+}
+
+function renderNotes(items: Array<{ id?: string; content?: string; createdAt?: string; userName?: string }>) {
+  if (!items.length) return text('No PagerDuty incident notes found.')
+  return text(items.map(note => `[${note.createdAt ?? ''}] ${note.userName ?? ''}\n${clip(note.content, 800)}`).join('\n\n'))
+}
+
 function renderIncident(value: {
   id?: string
   incidentNumber?: number
@@ -335,6 +344,54 @@ export function createTools(client: PagerDutyClient) {
         if (!args.incidentId) return { ok: false, reason: 'incidentId is required.' }
         try {
           return { ok: true, ...await client.updateIncidentStatus({ incidentId: args.incidentId as string, status: 'resolved', resolution: args.resolution as string, signal: exec.signal }) }
+        } catch (error) {
+          return { ok: false, reason: errorReason(error) }
+        }
+      },
+    }),
+
+    defineTool({
+      name: 'pagerduty_list_incident_notes',
+      description: 'List notes on one PagerDuty incident.',
+      parameters: { incidentId: { type: 'string', required: true, description: 'PagerDuty incident ID' } },
+      output: {
+        schema: { type: 'object', additionalProperties: false, properties: { found: { type: 'boolean' }, reason: { type: 'string' }, items: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { id: { type: 'string' }, content: { type: 'string' }, createdAt: { type: 'string' }, userId: { type: 'string' }, userName: { type: 'string' } } } } } },
+        render: (_args, value) => !value.found ? text(value.reason ?? 'PagerDuty is not configured.') : renderNotes(value.items ?? []),
+      },
+      presentCall(args): ToolCallView {
+        return { card: 'generic', title: `Incident notes ${args.incidentId ?? ''}`, kind: 'search' }
+      },
+      async execute(args, exec) {
+        if (!client.hasCredentials()) return unavailable('PagerDuty token is not configured.')
+        if (!args.incidentId) return unavailable('incidentId is required.')
+        try {
+          return { found: true, ...await client.listIncidentNotes(args.incidentId as string, exec.signal) }
+        } catch (error) {
+          return unavailable(errorReason(error))
+        }
+      },
+    }),
+
+    defineTool({
+      name: 'pagerduty_create_incident_note',
+      description: 'Add a note to one PagerDuty incident. WRITE operation; requires fromEmail config.',
+      parameters: {
+        incidentId: { type: 'string', required: true, description: 'PagerDuty incident ID' },
+        content: { type: 'string', required: true, description: 'Note content (clipped to 2000 characters)' },
+      },
+      output: {
+        schema: { type: 'object', additionalProperties: false, properties: { ok: { type: 'boolean' }, reason: { type: 'string' }, id: { type: 'string' }, content: { type: 'string' }, createdAt: { type: 'string' }, userName: { type: 'string' } } },
+        render: (_args, value) => value.ok ? text(`Note ${value.id ?? ''} added at ${value.createdAt ?? ''}\n${clip(value.content, 800)}`) : text(`Failed to add note: ${value.reason ?? ''}`),
+      },
+      presentCall(args): ToolCallView {
+        return { card: 'generic', title: `Add note to incident ${args.incidentId ?? ''}`, kind: 'edit' }
+      },
+      async execute(args, exec) {
+        if (!client.hasCredentials()) return { ok: false, reason: 'PagerDuty token is not configured.' }
+        if (!args.incidentId || !args.content) return { ok: false, reason: 'incidentId and content are required.' }
+        try {
+          const note = await client.createIncidentNote({ incidentId: args.incidentId as string, content: clip(args.content as string, 2000), signal: exec.signal })
+          return { ok: true, id: note.id, content: clip(note.content, 800), createdAt: note.createdAt, userName: note.userName }
         } catch (error) {
           return { ok: false, reason: errorReason(error) }
         }

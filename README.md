@@ -36,6 +36,8 @@ Create the token under User Settings > API Access. Write actions require a user 
 | `pagerduty_list_escalation_policies` | List escalation policies with rule summaries | No |
 | `pagerduty_acknowledge_incident` | Acknowledge one incident | Yes |
 | `pagerduty_resolve_incident` | Resolve one incident, optionally with a resolution note | Yes |
+| `pagerduty_list_incident_notes` | List notes on one incident | No |
+| `pagerduty_create_incident_note` | Add a note to one incident (requires `fromEmail`) | Yes |
 
 ## Error contract
 

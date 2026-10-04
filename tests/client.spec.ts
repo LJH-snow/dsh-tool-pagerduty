@@ -106,6 +106,22 @@ describe('PagerDutyClient', () => {
     expect(JSON.parse(String(secondInit.body))).toEqual({ incident: { type: 'incident_reference', status: 'resolved', resolution: 'Deployed fix' } })
   })
 
+  it('lists and creates incident notes', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ notes: [{ id: 'N1', content: 'Investigating', created_at: '2026-01-01T00:00:00Z', user: { id: 'P1', summary: 'Alice' } }] }))
+      .mockResolvedValueOnce(jsonResponse({ note: { id: 'N2', content: 'Deployed fix', created_at: '2026-01-01T01:00:00Z', user: { id: 'P1', summary: 'Alice' } } }))
+    const pd = client(fetchImpl)
+    const notes = await pd.listIncidentNotes('PI1')
+    const created = await pd.createIncidentNote({ incidentId: 'PI1', content: 'Deployed fix' })
+
+    expect(notes.items[0]).toMatchObject({ id: 'N1', content: 'Investigating', userName: 'Alice' })
+    expect(created).toMatchObject({ id: 'N2', content: 'Deployed fix' })
+    const createInit = (fetchImpl.mock.calls[1] as [string, RequestInit])[1]
+    expect(createInit.method).toBe('POST')
+    expect((createInit.headers as Record<string, string>).from).toBe('bot@example.com')
+    expect(JSON.parse(String(createInit.body))).toEqual({ note: { content: 'Deployed fix' } })
+  })
+
   it('throws on missing token and maps HTTP errors', async () => {
     const noToken = new PagerDutyClient({})
     await expect(noToken.authTest()).rejects.toThrow(PagerDutyError)

@@ -36,6 +36,8 @@ npm install @libai168/dsh-tool-pagerduty
 | `pagerduty_list_escalation_policies` | 查看升级策略与规则摘要 | 否 |
 | `pagerduty_acknowledge_incident` | 确认一个事件 | 是 |
 | `pagerduty_resolve_incident` | 解决一个事件，可附解决说明 | 是 |
+| `pagerduty_list_incident_notes` | 查看一个事件的备注列表 | 否 |
+| `pagerduty_create_incident_note` | 为一个事件添加备注（需要配置 `fromEmail`） | 是 |
 
 ## 错误契约
 

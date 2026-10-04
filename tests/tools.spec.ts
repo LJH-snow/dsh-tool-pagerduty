@@ -14,6 +14,8 @@ describe('dsh-tool-pagerduty tools', () => {
       'pagerduty_list_escalation_policies',
       'pagerduty_acknowledge_incident',
       'pagerduty_resolve_incident',
+      'pagerduty_list_incident_notes',
+      'pagerduty_create_incident_note',
     ])
   })
 
