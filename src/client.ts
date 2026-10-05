@@ -1,5 +1,7 @@
 /** PagerDuty REST API v2 client with injected fetch for testability. */
 
+import { assertSafeUrl, normalizeBaseUrl, UrlSecurityError, type LookupImpl } from './url-security.js'
+
 export interface PagerDutyClientOptions {
   /** PagerDuty REST API user token. */
   token?: string
@@ -10,6 +12,8 @@ export interface PagerDutyClientOptions {
   /** Request timeout in milliseconds. 0 disables the timeout. */
   timeoutMs?: number
   fetchImpl?: typeof fetch
+  /** Test-only DNS lookup seam for destination validation. */
+  lookupImpl?: LookupImpl
 }
 
 export class PagerDutyError extends Error {
@@ -273,13 +277,20 @@ export class PagerDutyClient {
   private readonly fromEmail: string
   private readonly timeoutMs: number
   private readonly fetchImpl: typeof fetch
+  private readonly lookupImpl: LookupImpl | undefined
 
   constructor(options: PagerDutyClientOptions = {}) {
     this.token = options.token ?? ''
-    this.baseUrl = (options.baseUrl ?? 'https://api.pagerduty.com').replace(/\/+$/, '')
+    try {
+      this.baseUrl = normalizeBaseUrl(options.baseUrl)
+    } catch (error) {
+      if (error instanceof UrlSecurityError) throw new PagerDutyError(error.message, 400)
+      throw error
+    }
     this.fromEmail = options.fromEmail ?? ''
     this.timeoutMs = options.timeoutMs ?? 15000
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch
+    this.lookupImpl = options.lookupImpl
   }
 
   hasCredentials(): boolean {
@@ -308,6 +319,12 @@ export class PagerDutyClient {
     const combined = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal
     const timer = this.timeoutMs > 0 ? setTimeout(() => controller.abort(), this.timeoutMs) : undefined
     try {
+      try {
+        await assertSafeUrl(url, this.lookupImpl)
+      } catch (error) {
+        if (error instanceof UrlSecurityError) throw new PagerDutyError(error.message, 400)
+        throw error
+      }
       const response = await this.fetchImpl(url.toString(), {
         method,
         headers,

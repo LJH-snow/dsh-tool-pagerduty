@@ -18,9 +18,12 @@ Requires `@deepseek-ai/cordis` (^4.0.1) and `@deepseek-ai/dsh-tools` (^0.1.0-rc.
 - name: 'github:LJH-snow/dsh-tool-pagerduty'
   config:
     token: 'u+...'                    # REST API v2 user token
-    # fromEmail: 'bot@example.com'    # identity used by write endpoints
+    # baseUrl: 'https://api.pagerduty.com' # optional API origin/path prefix
+    # fromEmail: 'bot@example.com'         # identity used by write endpoints
     # timeoutMs: 15000
 ```
+
+`baseUrl` defaults to `https://api.pagerduty.com`. It must be an absolute `http` or `https` URL with a hostname and no username, password, query, or fragment; a path prefix is allowed and trailing slashes are normalized. Before every request, the resolved host is checked and localhost, loopback, private, link-local, CGNAT, multicast, and every IANA special-purpose block (reserved/documentation/benchmark ranges, the `2001::/23` IETF protocol assignments prefix, deprecated site-local, SRv6 SIDs, AS112, and IPv4-mapped/NAT64 forms) are rejected, along with DNS results that include any such address. DNS failures are rejected closed. Keep credentials out of `baseUrl`.
 
 Create the token under User Settings > API Access. Write actions require a user token with incident write permission; prefer a dedicated bot account.
 

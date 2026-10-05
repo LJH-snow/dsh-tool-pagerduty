@@ -1,14 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import { PagerDutyClient, PagerDutyError } from '../src/client.ts'
+import type { LookupImpl } from '../src/url-security.ts'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 }
 
 const token = 'u+test-token'
+const stablePublicLookup: LookupImpl = async () => [{ address: '93.184.216.34', family: 4 }]
 
-function client(fetchImpl: ReturnType<typeof vi.fn>) {
-  return new PagerDutyClient({ token, fromEmail: 'bot@example.com', fetchImpl })
+function client(fetchImpl: ReturnType<typeof vi.fn>, options: Partial<ConstructorParameters<typeof PagerDutyClient>[0]> = {}) {
+  return new PagerDutyClient({ token, fromEmail: 'bot@example.com', lookupImpl: stablePublicLookup, fetchImpl, ...options })
 }
 
 describe('PagerDutyClient', () => {
@@ -120,6 +122,68 @@ describe('PagerDutyClient', () => {
     expect(createInit.method).toBe('POST')
     expect((createInit.headers as Record<string, string>).from).toBe('bot@example.com')
     expect(JSON.parse(String(createInit.body))).toEqual({ note: { content: 'Deployed fix' } })
+  })
+
+  it('preserves a custom base URL path prefix while normalizing slashes', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ user: { id: 'P1', name: 'On Call Bot' } }))
+    await client(fetchImpl, { baseUrl: 'https://pagerduty.example.test/api///' }).authTest()
+
+    expect((fetchImpl.mock.calls[0] as [string])[0]).toBe('https://pagerduty.example.test/api/users/me')
+  })
+
+  it('rejects an invalid base URL during construction without exposing credentials', () => {
+    expect(() => new PagerDutyClient({ baseUrl: 'https://user:secret@example.test' })).toThrow(PagerDutyError)
+    expect(() => new PagerDutyClient({ baseUrl: 'https://user:secret@example.test' })).not.toThrow('secret')
+    expect(() => new PagerDutyClient({ baseUrl: 'ftp://example.test' })).toThrow(PagerDutyError)
+    expect(() => new PagerDutyClient({ baseUrl: 'https://example.test/?token=secret' })).toThrow(PagerDutyError)
+  })
+
+  it.each([
+    'https://localhost',
+    'https://127.0.0.1',
+    'https://10.0.0.1',
+    'https://169.254.169.254',
+    'https://192.0.2.1',
+    'https://198.18.0.1',
+    'https://224.0.0.1',
+    'https://[::1]',
+    'https://[fc00::1]',
+    'https://[fe80::1]',
+    'https://[::ffff:10.0.0.1]',
+    'https://[2001:db8::1]',
+    'https://[ff02::1]',
+    // IANA special-purpose blocks that previously slipped through.
+    'https://192.175.48.1',
+    'https://[fec0::1]',
+    'https://[2001:3::1]',
+    'https://[2001:4:112::1]',
+    'https://[2001:20::1]',
+    'https://[2001:30::1]',
+    'https://[5f00::1]',
+    'https://[100:0:0:1::1]',
+    'https://[2620:4f:8000::1]',
+  ])('rejects unsafe literal destination %s before fetch', async baseUrl => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ user: {} }))
+    await expect(client(fetchImpl, { baseUrl }).authTest()).rejects.toThrow(PagerDutyError)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when DNS resolves a hostname to a private address', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ user: {} }))
+    const lookupImpl: LookupImpl = async () => [{ address: '10.0.0.7', family: 4 }]
+
+    await expect(client(fetchImpl, { baseUrl: 'https://pagerduty.example.test', lookupImpl }).authTest()).rejects.toThrow(PagerDutyError)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when DNS resolution fails', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ user: {} }))
+    const lookupImpl: LookupImpl = async () => {
+      throw new Error('DNS unavailable')
+    }
+
+    await expect(client(fetchImpl, { baseUrl: 'https://pagerduty.example.test', lookupImpl }).authTest()).rejects.toThrow(PagerDutyError)
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   it('throws on missing token and maps HTTP errors', async () => {

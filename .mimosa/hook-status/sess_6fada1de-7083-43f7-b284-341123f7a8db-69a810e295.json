@@ -1,14 +1,14 @@
 {
   "schemaVersion": "mimosa-hook-status/v1",
-  "recordedAt": "2026-10-04T15:49:57.587Z",
+  "recordedAt": "2026-10-05T04:53:22.878Z",
   "sessionId": "sess_6fada1de-7083-43f7-b284-341123f7a8db",
   "event": "PostToolUse",
   "toolName": "Edit",
-  "file": "/Users/Admin/Desktop/deepseek-harness-pro/dsh-tool-zendesk/tests/client.spec.ts",
+  "file": "/Users/Admin/Desktop/deepseek-harness-pro/dsh-tool-dockerhub/src/url-security.ts",
   "outcome": "inconclusive",
   "coverage": "partial",
   "findingCount": 0,
-  "durationMs": 4,
+  "durationMs": 5,
   "hostState": "hook_complete",
   "reportHint": ".mimosa/reports/"
 }

@@ -18,9 +18,12 @@ npm install @libai168/dsh-tool-pagerduty
 - name: 'github:LJH-snow/dsh-tool-pagerduty'
   config:
     token: 'u+...'                    # REST API v2 用户 token
-    # fromEmail: 'bot@example.com'    # 写接口使用的身份邮箱
+    # baseUrl: 'https://api.pagerduty.com' # 可选 API 地址/路径前缀
+    # fromEmail: 'bot@example.com'         # 写接口使用的身份邮箱
     # timeoutMs: 15000
 ```
+
+`baseUrl` 默认是 `https://api.pagerduty.com`。它必须是带 hostname 的绝对 `http` 或 `https` URL，不能包含用户名、密码、查询参数或 fragment；可以配置路径前缀，末尾斜杠会被规范化。每次请求前都会校验最终主机：localhost、环回、私有、链路本地、CGNAT、组播，以及全部 IANA 特殊用途地址段（保留/文档/基准测试、`2001::/23` IETF 协议分配段、已废弃的站点本地、SRv6 SID、AS112，以及 IPv4-mapped/NAT64 形式）都会被拒绝，DNS 结果中包含任一这类地址的域名同样被拒绝；DNS 解析失败也会按失败关闭处理。不要把凭证放进 `baseUrl`。
 
 在 PagerDuty 的 User Settings > API Access 创建 token。写操作需要具备事件写权限的用户 token，建议使用专用 bot 账号。
 
