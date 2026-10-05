@@ -140,6 +140,9 @@ describe('PagerDutyClient', () => {
 
   it.each([
     'https://localhost',
+    'https://service.localhost',
+    'https://localhost.localdomain',
+    'https://service.local',
     'https://127.0.0.1',
     'https://10.0.0.1',
     'https://169.254.169.254',
@@ -168,12 +171,16 @@ describe('PagerDutyClient', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
-  it('fails closed when DNS resolves a hostname to a private address', async () => {
+  it('fails closed when DNS resolves a hostname to a private address or mismatched family', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ user: {} }))
-    const lookupImpl: LookupImpl = async () => [{ address: '10.0.0.7', family: 4 }]
-
-    await expect(client(fetchImpl, { baseUrl: 'https://pagerduty.example.test', lookupImpl }).authTest()).rejects.toThrow(PagerDutyError)
-    expect(fetchImpl).not.toHaveBeenCalled()
+    for (const lookupImpl of [
+      async () => [{ address: '10.0.0.7', family: 4 }],
+      async () => [{ address: '93.184.216.34', family: 6 }],
+      async () => [{ address: '2001:db8::1', family: 4 }],
+    ] satisfies LookupImpl[]) {
+      await expect(client(fetchImpl, { baseUrl: 'https://pagerduty.example.test', lookupImpl }).authTest()).rejects.toThrow(PagerDutyError)
+      expect(fetchImpl).not.toHaveBeenCalled()
+    }
   })
 
   it('fails closed when DNS resolution fails', async () => {
